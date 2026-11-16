@@ -668,6 +668,10 @@ app.use('/api', (req, res) => {
 });
 
 async function registerWebhook(){
+  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
+    console.warn('[webhook] skipped — Telegram not configured');
+    return;
+  }
   const publicUrl = resolvePublicUrl();
   const webhookUrl = `${publicUrl}/api/telegram-webhook`;
   console.log(`PUBLIC_URL = ${publicUrl}`);
@@ -680,7 +684,7 @@ async function registerWebhook(){
   } catch (e) { console.error('setWebhook failed:', e.message); }
 }
 
-app.listen(PORT, async () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`National Bank backend running on port ${PORT}`);
   console.log(`Static HTML dir: ${__dirname}`);
   console.log(`Data directory: ${DATA_DIR} ${IS_PERSISTENT ? '✅ PERSISTENT' : '⚠️  TEMPORARY'}`);
@@ -691,5 +695,16 @@ app.listen(PORT, async () => {
   if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
     console.warn('⚠️  TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID missing — webhook may fail');
   }
-  await registerWebhook();
+
+  // Fire-and-forget: don't block startup on Telegram
+  registerWebhook().catch(e => console.error('Webhook registration failed:', e.message));
+});
+
+server.on('error', (err) => {
+  console.error('Server error:', err);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled rejection:', reason);
 });
